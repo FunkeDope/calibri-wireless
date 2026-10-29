@@ -20,16 +20,24 @@ function J.encode(v, opts)
 end
 
 function J.decode(s)
+    if type(s) ~= "string" or s == "" then return nil, "empty" end
     local v, pos, err = dk.decode(s, 1, J.null)
     if v == nil and err then return nil, err end
     return v
 end
 
+-- Returns nil (never raises) when the file is missing, empty, half-written
+-- or unreadable: the daemon replaces state.json with remove+rename on a FAT
+-- volume and the UI polls it every second, so readers must tolerate a miss.
 function J.load(path)
     local f, ferr = io.open(path, "rb")
     if not f then return nil, ferr end
-    local s = f:read("*a"); f:close()
-    return J.decode(s)
+    local ok, s = pcall(f.read, f, "*a")
+    f:close()
+    if not ok then return nil, s end
+    local ok2, v, err = pcall(J.decode, s)
+    if not ok2 then return nil, v end
+    return v, err
 end
 
 -- Atomic enough for our purposes: write to .tmp then rename.

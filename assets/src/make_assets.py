@@ -1,6 +1,12 @@
 """Render the e-ink UI assets for the Kindle calibre companion.
 
-python make_assets.py <calibre_logo.png> <fonts_dir> <out_dir>
+python make_assets.py <calibre_logo.png> <fonts_dir> <out_dir> [icons_dir]
+
+fonts_dir / icons_dir hold Amazon's Ember TTFs and the Kindle's status-bar
+SVG icons, pulled from a device with tools/fetch_device_art.py (they are not
+redistributable, so they are not in git; the rendered PNGs are). Without
+icons_dir the existing batt_*/wifi_* PNGs are left alone. Needs the resvg-py
+package for the icons.
 
 Outputs (8-bit grayscale PNGs, sized for a 1236x1648 Paperwhite 5):
   cover.png            600x960 library tile (scriptlet icon, book-cover aspect)
@@ -8,7 +14,8 @@ Outputs (8-bit grayscale PNGs, sized for a 1236x1648 Paperwhite 5):
   logo_small.png       120x120
   btn_bg.png           pill button "Run in background"
   btn_quit.png         pill button "Disconnect & quit"
-  chk_off.png/chk_on.png  checkbox row "Keep running forever"
+  chk_off.png/chk_on.png  checkbox row "Keep running until reboot"
+  batt_0..10.png, batt_chg.png, wifi_0..5.png  header icons (Kindle artwork)
   dots_0..3.png        activity dots for the Searching screen
 """
 import os
@@ -101,7 +108,7 @@ save(pill("Connect", h=110, invert=True, fontsize=40), "pill_connect.png")
 
 
 # --- checkbox rows (box + label centered as a group, to line up with the pills)
-def check_row(checked, text="Keep running forever", w=900, h=110):
+def check_row(checked, text="Keep running until reboot", w=900, h=110):
     im = Image.new("L", (w, h), 255)
     d = ImageDraw.Draw(im)
     box = 64
@@ -121,44 +128,37 @@ def check_row(checked, text="Keep running forever", w=900, h=110):
 save(check_row(False), "chk_off.png")
 save(check_row(True), "chk_on.png")
 
-# --- header glyphs: battery (0..10 tenths, + charging) and Wi-Fi bars (0..5)
-def battery(level10, charging=False, w=66, h=32):
-    im = Image.new("L", (w, h), 255)
-    d = ImageDraw.Draw(im)
-    body_w = w - 8
-    d.rounded_rectangle([0, 0, body_w, h - 1], radius=6, outline=0, width=4)
-    d.rounded_rectangle([body_w + 1, h // 2 - 7, w - 1, h // 2 + 7], radius=3, fill=0)  # nub
-    inner = max(0, int((body_w - 12) * level10 / 10))
-    if inner > 0:
-        d.rounded_rectangle([6, 6, 6 + inner, h - 7], radius=3, fill=0)
-    if charging:
-        # lightning bolt, inverted over the fill
-        pts = [(w * 0.52, 3), (w * 0.30, h * 0.58), (w * 0.47, h * 0.58), (w * 0.40, h - 4), (w * 0.64, h * 0.40), (w * 0.47, h * 0.40)]
-        d.polygon(pts, fill=255, outline=0)
-    return im
+# --- header glyphs: the Kindle's own status-bar icons, rasterised from the
+# SVGs the 5.17+ UI ships (icons_dir). battery-default.svg draws a fixed
+# full fill "M4 6h21v8H4z"; its width is scaled for the 0..10 tenths.
+ICONS = sys.argv[4] if len(sys.argv) > 4 else None
+BATT_W, BATT_H, WIFI_PX = 56, 35, 42   # ui.lua's ASSET table mirrors these
 
 
-for lvl in range(11):
-    save(battery(lvl), f"batt_{lvl}.png")
-save(battery(10, charging=True), "batt_chg.png")
+def svg_png(name, w, h, edit=None):
+    import io
+    import resvg_py
+    s = open(os.path.join(ICONS, name), encoding="utf-8").read()
+    if edit:
+        s = edit(s)
+    png = bytes(resvg_py.svg_to_bytes(svg_string=s, width=w, height=h))
+    return to_gray(Image.open(io.BytesIO(png)))
 
 
-def wifi(bars, w=50, h=34):
-    im = Image.new("L", (w, h), 255)
-    d = ImageDraw.Draw(im)
-    for i in range(5):
-        x = 2 + i * 9
-        bh = 8 + i * 6
-        y0 = h - 2 - bh
-        if i < bars:
-            d.rectangle([x, y0, x + 6, h - 2], fill=0)
-        else:
-            d.rectangle([x, y0, x + 6, h - 2], outline=0, width=1)
-    return im
-
-
-for bars in range(6):
-    save(wifi(bars), f"wifi_{bars}.png")
+if ICONS:
+    FULL = '<path d="M4 6h21v8H4z"/>'
+    assert FULL in open(os.path.join(ICONS, "battery-default.svg"), encoding="utf-8").read()
+    for lvl in range(11):
+        fw = round(21 * lvl / 10)
+        part = f'<path d="M4 6h{fw}v8H4z"/>' if fw else ""
+        save(svg_png("battery-default.svg", BATT_W, BATT_H, lambda s, part=part: s.replace(FULL, part)), f"batt_{lvl}.png")
+    save(svg_png("battery-charging.svg", BATT_W, BATT_H), "batt_chg.png")
+    # wifid reports signalStrength N/5; the Kindle itself only has 0..3 bars.
+    WIFI = {0: "wifi-offline.svg", 1: "wifi-one.svg", 2: "wifi-one.svg", 3: "wifi-two.svg", 4: "wifi-three.svg", 5: "wifi-three.svg"}
+    for bars, name in WIFI.items():
+        save(svg_png(name, WIFI_PX, WIFI_PX), f"wifi_{bars}.png")
+else:
+    print("no icons_dir given: keeping existing batt_*/wifi_* PNGs")
 
 # --- blank widgets: list row pill and keypad key (labels drawn at runtime)
 def blank_pill(w=900, h=110, invert=False):

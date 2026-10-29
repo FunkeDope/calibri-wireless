@@ -10,5 +10,7 @@ __pycache__/
 # raw framebuffer captures (converted PNGs in screenshots/ are committed)
 *.raw
 
-# Amazon fonts pulled from a device for asset rendering (not redistributable)
+# Amazon fonts and status-bar icons pulled from a device for asset rendering
+# (tools/fetch_device_art.py; not redistributable)
 fonts/
+icons/

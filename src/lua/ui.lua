@@ -112,7 +112,7 @@ local function fb(args) return sh(FBINK .. " -q" .. DARK_FLAG .. " " .. args) en
 local ASSET = {
     ["logo.png"] = { 400, 400 }, ["btn_bg.png"] = { 900, 128 }, ["btn_quit.png"] = { 900, 128 },
     ["chk_on.png"] = { 900, 110 }, ["chk_off.png"] = { 900, 110 }, ["rule.png"] = { 1156, 3 },
-    ["batt.png"] = { 66, 32 }, ["wifi.png"] = { 50, 34 },
+    ["batt.png"] = { 56, 35 }, ["wifi.png"] = { 42, 42 },
     ["pill_blank.png"] = { 900, 110 }, ["pill_blank_inv.png"] = { 900, 110 },
     ["pill_type_address.png"] = { 900, 110 }, ["pill_connect.png"] = { 900, 110 },
     ["key.png"] = { 170, 120 }, ["entry_box.png"] = { 900, 110 },
@@ -154,13 +154,16 @@ end
 local function refresh_all(flash) fb(flash and "-s -f" or "-s") end
 
 ----------------------------------------------------------------- header -----
+-- Laid out like the stock 5.18 home screen: time at the left; Wi-Fi,
+-- battery percentage and battery icon at the right; no title, no rule.
 local HDR_BASE_PX = 30
+local HDR_PX = 32
 local ADV = { ["0"]=18, ["1"]=18, ["2"]=18, ["3"]=18, ["4"]=18, ["5"]=18, ["6"]=18, ["7"]=18, ["8"]=18, ["9"]=18,
-              [":"]=8, ["%"]=28, [" "]=8, ["A"]=19, ["P"]=18, ["M"]=26 }
-local function text_w(s)
+              [":"]=8, ["%"]=28, [" "]=8, ["A"]=19, ["P"]=18, ["M"]=26 }   -- Ember Regular @30px
+local function text_w(s, px)
     local w = 0
     for ch in s:gmatch(".") do w = w + (ADV[ch] or 18) end
-    return round(w * S)
+    return round(w * S * (px or HDR_BASE_PX) / HDR_BASE_PX)
 end
 local hdr = { key = nil }
 local function header_values()
@@ -177,25 +180,25 @@ local function draw_header(refresh)
     hdr.key = key
     local H_TOP, H_H = 0, Y(84)
     clear_region(H_TOP, H_H)
-    local px = P(HDR_BASE_PX)
-    text_at("calibre wireless", X(40), Y(26), px, MED)
+    local px = P(HDR_PX)
     local pct = batt .. "%"
-    local x_time = W - X(40) - text_w(t)
-    local x_pct = x_time - X(26) - text_w(pct)
-    local x_batt = x_pct - X(10) - round(66 * S)
-    local x_wifi = x_batt - X(24) - round(50 * S)
-    text_at(t, x_time, Y(26), px, REG)
-    text_at(pct, x_pct, Y(26), px, REG)
-    img(chg and "batt_chg.png" or ("batt_" .. math.floor(batt / 10 + 0.5) .. ".png"), x_batt, Y(27))
-    img("wifi_" .. math.max(0, math.min(5, bars)) .. ".png", x_wifi, Y(26))
-    img("rule.png", X(40), Y(76))
+    -- Icons are the Kindle's own status-bar artwork (see make_assets.py);
+    -- sizes mirror ASSET["batt.png"] / ASSET["wifi.png"].
+    -- Positions measured from a stock 5.18 home screen (Paperwhite 5).
+    local x_batt = W - X(28) - round(56 * S)
+    local x_pct = x_batt - X(10) - text_w(pct, HDR_PX)
+    local x_wifi = x_pct - X(24) - round(42 * S)
+    text_at(t, X(32), Y(33), px, REG)
+    text_at(pct, x_pct, Y(33), px, REG)
+    img(chg and "batt_chg.png" or ("batt_" .. math.floor(batt / 10 + 0.5) .. ".png"), x_batt, Y(34))
+    img("wifi_" .. math.max(0, math.min(5, bars)) .. ".png", x_wifi, Y(28))
     if refresh then refresh_region(H_TOP, H_H) end
 end
 
 ---------------------------------------------------------------- layout -----
 local L = {
     logo_y = Y(175), title_y = Y(605), status_y = Y(760), sub_y = Y(828),
-    book_y = Y(915), timer_y = Y(1015), chk_y = Y(1140), bg_y = Y(1285),
+    book_y = Y(915), timer_y = Y(1045), chk_y = Y(1140), bg_y = Y(1285),
     quit_y = Y(1440), foot_y = Y(1596),
 }
 local BW, BH, CH = round(900 * S), round(128 * S), round(110 * S)
@@ -204,7 +207,7 @@ local function in_rect(r, x, y) return x >= r.x1 and x <= r.x2 and y >= r.y1 and
 local function rect(x, y, w, h, pad) pad = pad or Y(8); return { x1 = x - pad, y1 = y - pad, x2 = x + w + pad, y2 = y + h + pad } end
 
 local hit_main = {
-    pick = rect(0, L.status_y - Y(10), W, L.book_y + Y(60) - L.status_y, 0),
+    pick = rect(0, L.status_y - Y(10), W, L.timer_y - Y(20) - L.status_y, 0),
     chk  = rect(BX, L.chk_y, BW, CH),
     bg   = rect(BX, L.bg_y, BW, BH),
     quit = rect(BX, L.quit_y, BW, BH),
@@ -217,7 +220,13 @@ local last = { status = nil, sub = nil, book = nil, timer = nil, forever = nil }
 local function load_state()
     -- UI_STATE_FILE is a QC aid: render from a hand-written state file
     -- (tools/qc_shots.py uses it for the README screenshots).
-    state = json.load(os.getenv("UI_STATE_FILE") or (HERE .. "/state.json")) or {}
+    local fresh = json.load(os.getenv("UI_STATE_FILE") or (HERE .. "/state.json"))
+    -- Keep showing the last good state if the file is mid-rewrite or unreadable.
+    if type(fresh) ~= "table" then
+        if next(state) == nil then state = {} end
+        return
+    end
+    state = fresh
     for k, v in pairs(state) do
         if v == json.null then state[k] = nil end
     end
@@ -270,7 +279,7 @@ local function timer_line()
     local now = os.time()
     local up = state.started_at and (now - state.started_at) or 0
     if state.forever then
-        return ("Running %s \194\183 stays on until you quit"):format(fmt_dur(up))
+        return ("Running %s \194\183 stays on until you quit or reboot"):format(fmt_dur(up))
     end
     local left = state.deadline and (state.deadline - now) or nil
     if left then
@@ -285,22 +294,45 @@ local function fit(s, n)
 end
 
 -------------------------------------------------------------- main screen --
+-- The status block (between the title and the timer) has two layouts: when
+-- connected, the PC's name sits in a big pill so it is the first thing you
+-- read; otherwise plain status lines.
+local BLK_TOP = L.status_y - Y(14)
+local BLK_H = (L.timer_y - Y(14)) - BLK_TOP
+local function rows()
+    if state.status == "connected" then return { sub = Y(935), book = Y(982) } end
+    return { sub = L.sub_y, book = L.book_y }
+end
+local function draw_status_block()
+    local s1, s2 = status_lines()
+    local r = rows()
+    if state.status == "connected" then
+        local name = state.calibre_name or tostring(state.host or "?")
+        text("Connected to calibre on", Y(752), P(30), REG)
+        img("pill_blank.png", BX, Y(798))
+        text(fit(name, 24), Y(824), P(52), BOLD, { bgless = true })
+        text(fit(s2, 70), r.sub, P(28), REG)
+    else
+        text(s1, L.status_y, P(44), MED)
+        text(fit(s2, 70), r.sub, P(32), REG)
+    end
+    text(fit(book_line(), 60), r.book, P(30), REG)
+    last.status, last.sub, last.book = s1, s2, book_line()
+end
+
 local function draw_main()
     fb("-b -k")
     draw_header(false)
     img_center("logo.png", L.logo_y)
     text("calibre wireless", L.title_y, P(84), BOLD)
-    local s1, s2 = status_lines()
-    text(s1, L.status_y, P(44), MED)
-    text(fit(s2, 70), L.sub_y, P(32), REG)
-    text(fit(book_line(), 60), L.book_y, P(30), REG)
+    draw_status_block()
     text(timer_line(), L.timer_y, P(36), REG)
     img("chk_" .. (state.forever and "on" or "off") .. ".png", BX, L.chk_y)
     img("btn_bg.png", BX, L.bg_y)
     img("btn_quit.png", BX, L.quit_y)
     text("Tip: the Kindle sleeps after ~10 min idle and drops Wi\226\128\145Fi \226\128\148 tap the screen to wake it.", L.foot_y, P(24), REG)
     refresh_all(true)
-    last.status, last.sub, last.book, last.timer, last.forever = s1, s2, book_line(), timer_line(), state.forever
+    last.timer, last.forever = timer_line(), state.forever
 end
 
 local function update_text_row(y, height, str, px, font)
@@ -312,17 +344,10 @@ end
 local function draw_main_delta()
     draw_header(true)
     local s1, s2 = status_lines()
-    if s1 ~= last.status or s2 ~= last.sub then
-        clear_region(L.status_y - Y(6), Y(150))
-        text(s1, L.status_y, P(44), MED)
-        text(fit(s2, 70), L.sub_y, P(32), REG)
-        refresh_region(L.status_y - Y(6), Y(150))
-        last.status, last.sub = s1, s2
-    end
-    local b = book_line()
-    if b ~= last.book then
-        update_text_row(L.book_y, Y(60), fit(b, 60), P(30), REG)
-        last.book = b
+    if s1 ~= last.status or s2 ~= last.sub or book_line() ~= last.book then
+        clear_region(BLK_TOP, BLK_H)
+        draw_status_block()
+        refresh_region(BLK_TOP, BLK_H)
     end
     local t = timer_line()
     if t ~= last.timer then
@@ -337,9 +362,10 @@ local function draw_main_delta()
 end
 
 local function toast(msg)
-    clear_region(L.book_y - Y(4), Y(60))
-    text(msg, L.book_y, P(34), MED)
-    refresh_region(L.book_y - Y(4), Y(60))
+    local y = rows().book
+    clear_region(y - Y(4), Y(60))
+    text(msg, y, P(34), MED)
+    refresh_region(y - Y(4), Y(60))
 end
 
 ------------------------------------------------------------ choose screen --
@@ -595,7 +621,7 @@ local function main()
                     state.forever = nf
                     draw_main_delta()
                 elseif in_rect(hit_main.bg, tap.x, tap.y) then
-                    toast(state.forever and "Running in the background until you quit." or
+                    toast(state.forever and "Running in the background until you quit or reboot." or
                           ("Running in the background \194\183 auto\226\128\145exits in " .. fmt_dur((state.deadline or os.time()) - os.time())))
                     socket.sleep(1.2)
                     return "background"

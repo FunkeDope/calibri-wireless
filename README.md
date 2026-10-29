@@ -5,7 +5,7 @@ green "On Device" ticks, **Send to device**, delete, the Device book list.
 Books land in `documents/` as native Kindle files and open in the normal
 Kindle reader. A tap on the **calibre wireless** tile in your library connects;
 a full-screen e-ink app shows status, a session timer, *Run in background*,
-*Keep running forever* and *Disconnect & quit*.
+*Keep running until reboot* and *Disconnect & quit*.
 
 Standalone: nothing else needs to be installed on the Kindle. No KOReader.
 
@@ -52,7 +52,7 @@ Everything lives in `/mnt/us/calibre-wireless/`.
 3. Tap **calibre wireless** in the library. Within ~10 s calibre shows the
    device. Send books. Tap *Run in background* to close the app and keep the
    connection; it auto-exits after `max_idle_minutes` without calibre (or
-   tick *Keep running forever*).
+   tick *Keep running until reboot*).
 
 ## Several calibres, or no discovery
 
@@ -120,7 +120,10 @@ firmware 5.18/5.19 with SpringBreak. Screenshots in `screenshots/` are
 rendered from a placeholder state with `tools/qc_shots.py`.
 
 Build: `python tools/fetch_runtime.py && python tools/build.py` →
-`dist/calibre-wireless_<ver>_kindlehf-kindlepw2.kpkg`.
+`dist/calibre-wireless_<ver>_kindlehf-kindlepw2.kpkg`. To re-render the
+PNG assets: `tools/fetch_device_art.py <ip>` (Ember fonts and the Kindle's
+status-bar icons, from a device), then `assets/src/make_assets.py
+<calibre library.png> fonts assets icons`.
 
 ## Limits
 
