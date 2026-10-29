@@ -1,0 +1,14 @@
+# Everything that runs on the Kindle must stay LF, whatever the checkout OS.
+* text=auto eol=lf
+*.sh text eol=lf
+*.lua text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+
+# binaries
+*.png binary
+*.so binary
+runtime/**/bin/* binary
+*.kpkg binary

@@ -1,0 +1,14 @@
+# build output
+dist/
+*.kpkg
+
+# local tooling
+.venv/
+__pycache__/
+*.pyc
+
+# raw framebuffer captures (converted PNGs in screenshots/ are committed)
+*.raw
+
+# Amazon fonts pulled from a device for asset rendering (not redistributable)
+fonts/

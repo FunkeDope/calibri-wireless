@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "id": "calibre-wireless",
+  "name": "calibre wireless",
+  "author": "FunkeDope",
+  "description": "Connect your Kindle to calibre over Wi-Fi: it shows up in calibre like a plugged-in device (send, delete, on-device ticks). Books arrive as native Kindle files. Standalone, no KOReader needed.",
+  "version": [1, 0, 0],
+  "dependencies": [],
+  "supported_platforms": ["kindlehf", "kindlepw2"]
+}

@@ -1,0 +1,13 @@
+{
+    "items": [
+        {
+            "name": "calibre wireless",
+            "priority": 0,
+            "items": [
+                { "name": "Open calibre wireless", "priority": 0, "action": "/mnt/us/calibre-wireless/run.sh", "params": "app", "exitmenu": true, "refresh": true, "status": false },
+                { "name": "Connect in background", "priority": 1, "action": "/mnt/us/calibre-wireless/run.sh", "params": "start", "exitmenu": false, "refresh": false, "status": true },
+                { "name": "Disconnect / stop", "priority": 2, "action": "/mnt/us/calibre-wireless/run.sh", "params": "stop", "exitmenu": false, "refresh": false, "status": true }
+            ]
+        }
+    ]
+}
