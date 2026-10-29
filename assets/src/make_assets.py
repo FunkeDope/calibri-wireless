@@ -3,7 +3,7 @@
 python make_assets.py <calibre_logo.png> <fonts_dir> <out_dir>
 
 Outputs (8-bit grayscale PNGs, sized for a 1236x1648 Paperwhite 5):
-  cover.png            600x800 library tile (scriptlet icon)
+  cover.png            600x960 library tile (scriptlet icon, book-cover aspect)
   logo.png             400x400 calibre logo
   logo_small.png       120x120
   btn_bg.png           pill button "Run in background"
@@ -59,20 +59,22 @@ save(logo(400), "logo.png")
 save(logo(120), "logo_small.png")
 
 # --- library tile (looks like a book cover on the home screen)
-cover = Image.new("L", (600, 800), 255)
+# Same 1:1.6 aspect as Kindle book covers so the tile is as tall as the
+# books next to it. The home screen shows it at roughly a quarter size, so:
+# thin border, the logo filling the top, two big words, no small print.
+CW, CH = 600, 960
+cover = Image.new("L", (CW, CH), 255)
 d = ImageDraw.Draw(cover)
-# The home screen shows this at roughly a quarter size, so: thin border,
-# the logo filling the top, and two big words. No small print.
-d.rectangle([0, 0, 599, 799], outline=0, width=8)
-LG = 480
+d.rectangle([0, 0, CW - 1, CH - 1], outline=0, width=8)
+LG = 500
 lg = logo(LG)
-cover.paste(lg, ((600 - LG) // 2, 28))
-f_title = font("Amazon-Ember-Bold.ttf", 128)
-f_name = font("Amazon-Ember-Medium.ttf", 84)
+cover.paste(lg, ((CW - LG) // 2, 60))
+f_title = font("Amazon-Ember-Bold.ttf", 132)
+f_name = font("Amazon-Ember-Medium.ttf", 88)
 tw = d.textlength("calibre", font=f_title)
-d.text(((600 - tw) / 2, 500), "calibre", font=f_title, fill=0)
+d.text(((CW - tw) / 2, 600), "calibre", font=f_title, fill=0)
 tw = d.textlength("wireless", font=f_name)
-d.text(((600 - tw) / 2, 660), "wireless", font=f_name, fill=0)
+d.text(((CW - tw) / 2, 770), "wireless", font=f_name, fill=0)
 save(cover, "cover.png")
 
 
